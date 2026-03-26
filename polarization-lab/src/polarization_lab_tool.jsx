@@ -375,7 +375,7 @@ async function generateComment(prompt, apiKey, model) {
     headers: {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${apiKey}`,
-      "HTTP-Referer": "https://polarization-lab.duke.edu",
+      "HTTP-Referer": "http://localhost:5173",
       "X-Title": "Duke Polarization Lab",
     },
     body: JSON.stringify({
@@ -418,7 +418,7 @@ export default function App() {
     body: "I've noticed that colleges seem to attract people with strong beliefs. It could be political, social, or cultural, but either way it seems like campuses are mini versions of big societal debates. It seems like people just find their group and they feed off each other, but other times it feels like you could really learn from such polarizing people.",
   });
   const [selectedPersonas, setSelectedPersonas] = useState(["omar", "chloe", "finch"]);
-  const [apiKey, setApiKey] = useState("");
+  const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY || "";
   const [model, setModel] = useState("openai/gpt-4o-mini");
   const [realComments, setRealComments] = useState([]);
   const [datasetName, setDatasetName] = useState("");
@@ -438,6 +438,18 @@ export default function App() {
       setDatasetName(`${file.name} (${parsed.length.toLocaleString()} comments)`);
     };
     reader.readAsText(file);
+  };
+
+  const loadSampleDataset = async () => {
+    try {
+      const res = await fetch("/sentiment140_sample.csv");
+      const text = await res.text();
+      const parsed = parseCSV(text);
+      setRealComments(parsed);
+      setDatasetName(`Sentiment140 sample (${parsed.length.toLocaleString()} comments)`);
+    } catch {
+      alert("Could not load sample dataset.");
+    }
   };
 
   const togglePersona = (id) =>
@@ -720,6 +732,9 @@ export default function App() {
                 <button style={S.uploadBtn} onClick={() => fileRef.current?.click()}>
                   📂 Upload CSV / TSV
                 </button>
+                <button style={S.uploadBtn} onClick={loadSampleDataset}>
+                  ⚡ Load Sample
+                </button>
                 {datasetName && (
                   <span style={{ color: "#22c55e", fontSize: 12 }}>✓ {datasetName}</span>
                 )}
@@ -754,21 +769,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* API Key */}
-            <div style={S.card}>
-              <div style={S.sectionTitle}>OpenRouter API Key</div>
-              <input
-                style={{ ...S.input, fontFamily: "monospace", letterSpacing: 1 }}
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="sk-or-v1-…"
-              />
-              <div style={{ color: "#6b7280", fontSize: 11, marginTop: 6 }}>
-                Stored in memory only — never saved or sent anywhere except OpenRouter.
-              </div>
-            </div>
-
             {/* Model */}
             <div style={S.card}>
               <div style={S.sectionTitle}>Model</div>
@@ -777,12 +777,27 @@ export default function App() {
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
               >
-                <option value="openai/gpt-4o-mini">openai/gpt-4o-mini (fast, cheap)</option>
-                <option value="openai/gpt-4o">openai/gpt-4o</option>
-                <option value="anthropic/claude-3-haiku">anthropic/claude-3-haiku</option>
-                <option value="anthropic/claude-3.5-sonnet">anthropic/claude-3.5-sonnet</option>
-                <option value="meta-llama/llama-3.1-8b-instruct">meta-llama/llama-3.1-8b-instruct (free tier)</option>
-                <option value="mistralai/mistral-7b-instruct">mistralai/mistral-7b-instruct</option>
+                <optgroup label="OpenAI">
+                  <option value="openai/gpt-4o-mini">gpt-4o-mini (fast, cheap)</option>
+                  <option value="openai/gpt-4o">gpt-4o</option>
+                </optgroup>
+                <optgroup label="Anthropic">
+                  <option value="anthropic/claude-3-haiku">claude-3-haiku</option>
+                  <option value="anthropic/claude-3.5-sonnet">claude-3.5-sonnet</option>
+                  <option value="anthropic/claude-sonnet-4-5">claude-sonnet-4-5</option>
+                </optgroup>
+                <optgroup label="WizardLM">
+                  <option value="microsoft/wizardlm-2-8x22b">wizardlm-2-8x22b</option>
+                  <option value="microsoft/wizardlm-2-7b">wizardlm-2-7b</option>
+                </optgroup>
+                <optgroup label="Meta">
+                  <option value="meta-llama/llama-3.1-8b-instruct">llama-3.1-8b (free tier)</option>
+                  <option value="meta-llama/llama-3.3-70b-instruct">llama-3.3-70b</option>
+                </optgroup>
+                <optgroup label="Mistral">
+                  <option value="mistralai/mistral-7b-instruct">mistral-7b</option>
+                  <option value="mistralai/mixtral-8x7b-instruct">mixtral-8x7b</option>
+                </optgroup>
               </select>
             </div>
 
@@ -791,7 +806,7 @@ export default function App() {
               <button
                 style={S.runBtn}
                 onClick={runPipeline}
-                disabled={running || selectedPersonas.length === 0 || !apiKey.trim() || !topic.title.trim()}
+                disabled={running || selectedPersonas.length === 0 || !topic.title.trim()}
               >
                 {running ? "⏳ Running…" : `▶ Generate ${selectedPersonas.length} Comments`}
               </button>
